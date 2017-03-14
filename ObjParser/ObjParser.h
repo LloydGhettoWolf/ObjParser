@@ -48,36 +48,49 @@ class ObjParser
 {
 public:
 
-	ObjParser() : offsetNum(1), texOffsetNum(1), texIndex(0), matIndex(0) {};
+	ObjParser() : mOffsetVert(1), mOffsetUv(1), mOffsetNorm(1), matIndex(0) {};
 
-	void CreateUVs(MeshData* data);
-	void CreateNormals(MeshData* data);
-	void FinishInfo(MeshData* data);
-	void ProcessOneLenTokens(MeshData* data, stringstream& ss, char firstToken);
-	void ProcessTwoLenTokens(MeshData* data, stringstream& ss, string& firstToken);
-	void ProcessLongerTokens(MeshData* data, stringstream& ss, string& firstToken);
+	void CreateNormals();
+	void FinishInfo();
+	void ProcessOneLenTokens(stringstream& ss, char firstToken);
+	void ProcessTwoLenTokens(stringstream& ss, string& firstToken);
+	void ProcessLongerTokens(stringstream& ss, string& firstToken);
+	void CreateVertex(string& faceDescription);
+
 
 	void ReadMaterials(string& fileName);
 
-	MeshData* ReadObjFile(string& filePath, string& fileName);
+	void ReadObjFile(string& filePath, string& fileName);
 	void WriteOutData(string& outFile);
+	void ProcessFaceData(string& data);
 
 private:
+
 	bool finishedVertexInfo = false;
 	
-	unsigned int offsetNum;
-	unsigned int texOffsetNum;
-	unsigned int texIndex;
+	unsigned int mOffsetVert;
+	unsigned int mOffsetUv;
+	unsigned int mOffsetNorm;
 	unsigned int matIndex;
+	unsigned int texIndex;
 
-	vector<MeshData> meshes;
-	vector<XMFLOAT4> uvs;
-	vector<unsigned int> texIndices;
-	vector<string> meshNames;
-	vector<materialInfo> materials;
-	vector<string> textures;
-	map<string, unsigned int> materialNames;
-	string name;
+	unsigned int mCurrIndex = 0;
 
-	string currentPath;
+	MeshData mTempMesh;
+	vector<MeshData> mMeshes;
+	vector<VertexType> mFullVertices;
+
+	vector<XMFLOAT4> mVertices;
+	vector<XMFLOAT4> mUvs;
+	vector<XMFLOAT4> mNormals;
+	vector<unsigned int> mIndices;
+	map<string, unsigned int> faceIndices;
+
+	vector<string> mMeshNames;
+	vector<materialInfo> mMaterials;
+	vector<string> mTextures;
+	map<string, unsigned int> mMaterialNames;
+	string mName;
+
+	string mCurrentPath;
 };
