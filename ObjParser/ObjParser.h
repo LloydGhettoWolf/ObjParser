@@ -13,9 +13,9 @@ using namespace DirectX;
 
 struct VertexType
 {
-	XMFLOAT3 position;
-	XMFLOAT3 normal;
-	XMFLOAT2 uv;
+	XMFLOAT4 position;
+	XMFLOAT4 normal;
+	XMFLOAT4 uv;
 };
 
 struct MeshData
@@ -34,7 +34,6 @@ struct headerInfo
 
 struct materialInfo
 {
-	string materialName;
 	XMFLOAT3 diffuse;
 	XMFLOAT3 ambient;
 	XMFLOAT3 specular;
@@ -72,12 +71,13 @@ private:
 	unsigned int matIndex;
 
 	vector<MeshData> meshes;
-	vector<XMFLOAT2> uvs;
+	vector<XMFLOAT4> uvs;
 	vector<unsigned int> texIndices;
 	vector<string> meshNames;
 	vector<materialInfo> materials;
+	vector<string> textures;
 	map<string, unsigned int> materialNames;
-	map<string, unsigned int> texNames;
+	string name;
 
 	string currentPath;
 };

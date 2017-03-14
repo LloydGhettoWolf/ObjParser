@@ -6,17 +6,14 @@
 	// to add correct uv information to the space
 	// allocated to the UVs in the meshdata
 
-	int numVerts = data->vertices.size();
+	unsigned int numIndices = (unsigned int)data->indices.size();
 
-	for (unsigned int i = 0; i < numVerts; i++)
+	for (unsigned int i = 0; i < numIndices; i++)
 	{
-		data->vertices[i].uv = uvs[texIndices[i]];
+		unsigned int index = data->indices[i];
+		data->vertices[index].uv = uvs[texIndices[i]];
 	}
 
-	// now data is assigned, clear the texIndices and
-	// uv vectors
-	uvs.clear();
-	texIndices.clear();
 }
 
  void ObjParser::CreateNormals(MeshData* data)
@@ -29,12 +26,12 @@
 	// hey vertices!
 
 
-	unsigned int numFaces = data->indices.size() / 3;
-	unsigned int numVerts = data->vertices.size();
+	unsigned int numFaces = (unsigned int)data->indices.size() / 3;
+	unsigned int numVerts = (unsigned int)data->vertices.size();
 
 	// A vector of vectors storing the faces associated with each XMFLOAT3
 	vector<XMVECTOR> faceNormals;
-	faceNormals.reserve(numVerts);
+	//faceNormals.reserve(numVerts);
 
 	for (unsigned int i = 0; i < numVerts; i++)
 	{
@@ -47,17 +44,16 @@
 		unsigned int indexA = data->indices[index];
 		unsigned int indexB = data->indices[index + 1];
 		unsigned int indexC = data->indices[index + 2];
-		XMVECTOR A = XMLoadFloat3(&data->vertices[indexA].position);
-		XMVECTOR B = XMLoadFloat3(&data->vertices[indexB].position);
-		XMVECTOR C = XMLoadFloat3(&data->vertices[indexC].position);
+		XMVECTOR A = XMLoadFloat4(&data->vertices[indexA].position);
+		XMVECTOR B = XMLoadFloat4(&data->vertices[indexB].position);
+		XMVECTOR C = XMLoadFloat4(&data->vertices[indexC].position);
 
 		XMVECTOR first = B - A;
 		XMVECTOR second = C - A;
 
-		XMFLOAT3 faceNormal;
-		XMStoreFloat3(&faceNormal, XMVector3Cross(first, second));
-
-		XMVECTOR faceNormalVec = XMLoadFloat3(&faceNormal);
+		XMFLOAT4 faceNormal;
+		XMStoreFloat4(&faceNormal, XMVector3Cross(first, second));
+		XMVECTOR faceNormalVec = XMLoadFloat4(&faceNormal);
 		faceNormals[indexA] += faceNormalVec;
 		faceNormals[indexB] += faceNormalVec;
 		faceNormals[indexC] += faceNormalVec;
@@ -67,22 +63,22 @@
 	for (unsigned int i = 0; i < numVerts; i++)
 	{
 		faceNormals[i] = XMVector3Normalize(faceNormals[i]);
-		XMFLOAT3 destnorm;
-		XMStoreFloat3(&destnorm, faceNormals[i]);
-		data->vertices[i].normal = destnorm;
+		XMStoreFloat4(&data->vertices[i].normal, faceNormals[i]);
 	}
 
 }
 
  void ObjParser::FinishInfo(MeshData* data)
 {
+	static int meshNum = 0;
+	meshNum++;
 	// create normals and uvs for the mesh/submesh
 	CreateNormals(data);
-	texOffsetNum += uvs.size();
+	texOffsetNum += (unsigned int)uvs.size();
 	CreateUVs(data);
 
 	// adjust texoffset num
-	offsetNum += data->vertices.size();
+	offsetNum += (unsigned int)data->vertices.size();
 
 	// output the size of the vertice and indices to the standard out
 	cout << data->vertices.size() << " " << data->indices.size() << " " << endl;
@@ -92,6 +88,11 @@
 	// now clear the current temp mesh data
 	data->indices.clear();
 	data->vertices.clear();
+
+	// now data is assigned, clear the texIndices and
+	// uv vectors
+	uvs.clear();
+	texIndices.clear();
 
 	finishedVertexInfo = false;
 }
@@ -121,6 +122,7 @@
 		ss >> vert.position.x;
 		ss >> vert.position.y;
 		ss >> vert.position.z;
+		vert.position.w = 1.0f;
 		data->vertices.emplace_back(vert);
 		break;
 	case 'f':
@@ -131,7 +133,7 @@
 		getline(ss, line);
 
 		newSS << line;
-		val = line.find('//');
+		val = line.find('/');
 		if (val != string::npos)
 		{
 			// is this face info containing 3 vertices (a triangle)
@@ -149,8 +151,8 @@
 					data->indices.emplace_back(index - offsetNum);
 					newSS >> waste;
 
-					newSS >> texIndex;
-					texIndices.emplace_back(texIndex - texOffsetNum);
+					newSS >> uvIndex;
+					texIndices.emplace_back(uvIndex - texOffsetNum);
 
 					newSS.ignore(INT_MAX, ' ');
 				}
@@ -237,9 +239,11 @@
 	switch (firstToken[1])
 	{
 	case 't':
-		XMFLOAT2 uv;
+		XMFLOAT4 uv;
 		ss >> uv.x;
 		ss >> uv.y;
+		uv.z = 0.0f;
+		uv.w = 0.0f;
 		uvs.emplace_back(uv);
 		break;
 	}
@@ -283,7 +287,7 @@ MeshData* ObjParser::ReadObjFile(string& filePath, string& fileName)
 		string firstToken;
 		ss >> firstToken;
 
-		int len = firstToken.length();
+		int len = (int)firstToken.length();
 
 		// The first token of a line could potentially be a vertex 'v' or something
 		// longer like vt - get the length and then act appropriately
@@ -325,12 +329,12 @@ MeshData* ObjParser::ReadObjFile(string& filePath, string& fileName)
 		 float r, g, b;
 		 
 		 fileContents >> token;
-
 		 if (token == "newmtl")
 		 {
+
 			 if (firstMaterial)
 			 {
-				 fileContents >> info.materialName;
+				 fileContents >> name;
 				 firstMaterial = false;
 			 }
 			 else
@@ -338,13 +342,13 @@ MeshData* ObjParser::ReadObjFile(string& filePath, string& fileName)
 				 // Push prev material into vector
 				 materials.emplace_back(info);
 				 pair<string, unsigned int> matPair;
-				 matPair.first = info.materialName;
-				 matPair.second = materials.size() - 1;
+				 matPair.first = name;
+				 matPair.second = (unsigned int)materials.size() - 1;
 				 materialNames.insert(matPair);
 
 				 //clear info for new material and record name
 				 memset(&info, 0, sizeof(materialInfo));
-				 fileContents >> info.materialName;
+				 fileContents >> name;
 			 }
 		 }
 		 else if (token[0] == 'K')
@@ -374,18 +378,15 @@ MeshData* ObjParser::ReadObjFile(string& filePath, string& fileName)
 			 fileContents >> texName;
 			 
 			 unsigned int index = 0;
-
-			 if (texNames.count(texName) != 0)
+			 auto result = find(textures.begin(), textures.end(), texName);
+			 if (result == textures.end())
 			 {
-				 pair<string, unsigned int> newPair;
-				 newPair.first = texName;
-				 newPair.second = texIndex++;
-				 index = newPair.second;
-				 texNames.insert(newPair);
+				 textures.emplace_back(texName);
+				 index = texIndex++;
 			 }
 			 else
 			 {
-				 index = texNames[texName];
+				 index = (unsigned int)(result - textures.begin());
 			 }
 
 			 if (token == "map_Kd")
@@ -405,6 +406,13 @@ MeshData* ObjParser::ReadObjFile(string& filePath, string& fileName)
 
 	 }
 
+	 // Push prev material into vector
+	 materials.emplace_back(info);
+	 pair<string, unsigned int> matPair;
+	 matPair.first = name;
+	 matPair.second = (unsigned int)materials.size() - 1;
+	 materialNames.insert(matPair);
+
  }
 
  void ObjParser::WriteOutData(string& outFile)
@@ -413,16 +421,20 @@ MeshData* ObjParser::ReadObjFile(string& filePath, string& fileName)
 	ofstream out;
 	out.open(outFile, ios::binary);
 
-	int size = meshes.size();
-	out << size;
-	for (int i = 0; i < size; i++)
+	unsigned int size = (unsigned int)meshes.size();
+	out.write((char*)&size, sizeof(unsigned int));
+	unsigned int numMaterials = (unsigned int)materials.size();
+	out.write((char*)&numMaterials, sizeof(unsigned int));
+	
+
+	for (unsigned int i = 0; i < size; i++)
 	{
 		MeshData mesh = meshes[i];
 
 		// For each mesh/ submesh write a header that contains num of verts and indices
 		headerInfo info;
-		info.numverts = mesh.vertices.size();
-		info.numIndices = mesh.indices.size();
+		info.numverts = (int)mesh.vertices.size();
+		info.numIndices = (int)mesh.indices.size();
 		info.materialIndex = mesh.materialIndex;
 		out.write((char*)&info, sizeof(headerInfo));
 
@@ -432,12 +444,20 @@ MeshData* ObjParser::ReadObjFile(string& filePath, string& fileName)
 	}
 
 	//now write the material info out too
-	size = materials.size();
-	out << size;
-	for (int i = 0; i < size; i++)
+	for (unsigned int i = 0; i < numMaterials; i++)
 	{
-		materialInfo info = materials[i];
-		out.write((char*)&info, sizeof(materialInfo));
+		out.write((char*)&materials[i], sizeof(materialInfo));
+	}
+
+	out.write((char*)&texIndex, sizeof(unsigned int));
+
+	//now write out names of textures
+	for (auto i = textures.begin(); i != textures.end(); i++)
+	{
+		string value = *i;
+		size_t len = value.length();
+		out.write((char*)&len, sizeof(unsigned int));
+		out.write(value.c_str(), sizeof(char) * len);
 	}
 
 	out.close();
