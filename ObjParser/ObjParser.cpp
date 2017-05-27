@@ -4,8 +4,30 @@
 void ObjParser::Init()
 {
 	//reset max and min
-	mTempMesh.max = XMFLOAT4(-9999.0f, -9999.0f, -9999.0f, 1.0f);
-	mTempMesh.min = XMFLOAT4(9999.0f, 9999.0f, 9999.0f, 1.0f);
+	mTempMesh.max = XMFLOAT3(-9999.0f, -9999.0f, -9999.0f);
+	mTempMesh.min = XMFLOAT3(9999.0f, 9999.0f, 9999.0f);
+}
+
+void ObjParser::CalcCenterAndSubtract()
+{
+	XMVECTOR min, max;
+	min = XMLoadFloat3(&mTempMesh.min);
+	max = XMLoadFloat3(&mTempMesh.max);
+	XMVECTOR center = min + 0.5f * (max - min);
+	min -= center;
+	max -= center;
+	XMStoreFloat3(&mTempMesh.min, min);
+	XMStoreFloat3(&mTempMesh.max, max);
+
+	unsigned int size = mPositions.size();
+	for (unsigned int i = 0; i < size; i++)
+	{
+		XMVECTOR pos = XMLoadFloat3(&mPositions[i]);
+		pos -= center;
+		XMStoreFloat3(&mPositions[i], pos);
+	}
+
+	XMStoreFloat3(&mTempMesh.center, center);
 }
 
  void ObjParser::CreateNormals()
@@ -155,7 +177,41 @@ void ObjParser::Init()
 
  void ObjParser::FinishInfo(bool materialChange)
 {
-	static int meshNum = 0;
+	static unsigned int meshNum = 0;
+
+	//// first check if the mesh already exists in the vector of meshes
+	//for (unsigned int i = 0; i < meshNum; i++)
+	//{
+	//	MeshData mesh = mMeshes[i];
+	//	if (mesh.positions.size() == mTempMesh.positions.size() && !materialChange)
+	//	{
+	//		mOffsetUv += (unsigned int)mUvs.size();
+	//		mOffsetVert += (unsigned int)mPositions.size();
+	//		mOffsetNorm += (unsigned int)mNormals.size();
+	//		mPositions.clear();
+	//		mNormals.clear();
+	//		mUvs.clear();
+	//		mTangents.clear();
+	//		faceIndices.clear();
+	//		// mark flag
+	//		finishedVertexInfo = false;
+
+	//		mTempMesh.max = XMFLOAT3(-9999.0f, -9999.0f, -9999.0f);
+	//		mTempMesh.min = XMFLOAT3(9999.0f, 9999.0f, 9999.0f);
+
+	//		// reset all vectors holding vertex related data
+	//		mTempMesh.positions.clear();
+	//		mTempMesh.normals.clear();
+	//		mTempMesh.uvs.clear();
+	//		mTempMesh.tangents.clear();
+
+	//		// reset so isn't normal mapped to start with
+	//		mTempMesh.isNormalMapped = false;
+	//		return;
+	//	}
+	//		
+	//}
+
 	meshNum++;
 	
 	// adjust offset nums only if this is the end of a mesh and not a material change
@@ -207,8 +263,8 @@ void ObjParser::Init()
 
 	// clear the data stored in the tempMesh as if starting from fresh
 	// reset max and min
-	mTempMesh.max = XMFLOAT4(-9999.0f, -9999.0f, -9999.0f, 1.0f);
-	mTempMesh.min = XMFLOAT4(9999.0f, 9999.0f, 9999.0f, 1.0f);
+	mTempMesh.max = XMFLOAT3(-9999.0f, -9999.0f, -9999.0f);
+	mTempMesh.min = XMFLOAT3(9999.0f, 9999.0f, 9999.0f);
 
 	// reset all vectors holding vertex related data
 	mTempMesh.positions.clear();
@@ -258,6 +314,7 @@ void ObjParser::Init()
 
  void ObjParser::ProcessFaceData(string& data)
  {
+
 	 // does the string describing the face exist in the map?
 	 size_t val = faceIndices.count(data);
 
@@ -364,7 +421,7 @@ void ObjParser::ProcessOneLenTokens(char** pointer)
 
 		//if faces have just been read in then
 		//this is a new mesh
-		readingFaces = false;
+		mReadingFaces = false;
 		if (finishedVertexInfo) {
 			FinishInfo();
 		}
@@ -380,7 +437,7 @@ void ObjParser::ProcessOneLenTokens(char** pointer)
 		// check for format of the face info
 		// if it is like 1/1/1 then split up for use
 		// otherwise just read in as is
-		readingFaces = true;
+		mReadingFaces = true;
 		//getline(ss, line);
 
 		//newSS << line;
@@ -478,7 +535,7 @@ void ObjParser::ProcessLongerTokens(char** pointer)
 {
 	/*if (firstToken == "usemtl")
 	{
-		if (readingFaces)
+		if (mReadingFaces)
 		{
 			cout << "mid face material change" << endl;
 			FinishInfo(false);
@@ -570,7 +627,7 @@ void ObjParser::ProcessOneLenTokens(ifstream& ss, char firstToken)
 
 		//if faces have just been read in then
 		//this is a new mesh
-		readingFaces = false;
+		mReadingFaces = false;
 		if (finishedVertexInfo) {
 			FinishInfo();
 		}
@@ -586,7 +643,17 @@ void ObjParser::ProcessOneLenTokens(ifstream& ss, char firstToken)
 		// check for format of the face info
 		// if it is like 1/1/1 then split up for use
 		// otherwise just read in as is
-		readingFaces = true;
+
+		if (!mReadingFaces)
+		{
+			// calc center
+			// subtract from all positions
+			CalcCenterAndSubtract();
+		}
+
+		// mark reading faces bool as true, so if "usemtl" pops up we know its a mid-mesh
+		// material change
+		mReadingFaces = true;
 		getline(ss, line);
 
 		newSS << line;
@@ -684,7 +751,7 @@ void ObjParser::ProcessLongerTokens(ifstream& ss,
 {
 	if (firstToken == "usemtl")
 	{
-		if (readingFaces)
+		if (mReadingFaces)
 		{
 			cout << "mid face material change" << endl;
 			FinishInfo(true);
@@ -898,12 +965,10 @@ void ObjParser::ProcessLongerTokens(ifstream& ss,
 		out.write((char*)&mesh.indices[0], sizeof(unsigned int) * info.numIndices);
 		
 		//write out min and max
-		mesh.min.w = 1.0f;
-		mesh.max.w = 1.0f;
-		out.write((char*)&mesh.min, sizeof(XMFLOAT4));
-		out.write((char*)&mesh.max, sizeof(XMFLOAT4));
+		out.write((char*)&mesh.min, sizeof(XMFLOAT3));
+		out.write((char*)&mesh.max, sizeof(XMFLOAT3));
+		out.write((char*)&mesh.center, sizeof(XMFLOAT3));
 	}
-
 
 
 	//now write the material info out too

@@ -22,7 +22,7 @@ struct MeshData
 	vector<unsigned int> indices;
 	unsigned int materialIndex;
 	bool isNormalMapped;
-	XMFLOAT4 min, max;
+	XMFLOAT3 min, max, center;
 };
 
 
@@ -85,10 +85,12 @@ public:
 	void IsMin(XMFLOAT3& vert);
 	void IsMax(XMFLOAT3& vert);
 
+	void CalcCenterAndSubtract();
+
 private:
 
 	bool finishedVertexInfo = false;
-	bool readingFaces = false;
+	bool mReadingFaces = false;
 	bool hasNormalsInc = false;
 	
 	unsigned int mOffsetVert;
