@@ -11,19 +11,20 @@
 using namespace std;
 using namespace DirectX;
 
-struct VertexType
-{
-	XMFLOAT4 position;
-	XMFLOAT4 normal;
-	XMFLOAT4 uv;
-};
+//#define FAST
 
 struct MeshData
 {
-	vector<VertexType> vertices;
+	vector<XMFLOAT3> positions;
+	vector<XMFLOAT3> normals;
+	vector<XMFLOAT2> uvs;
+	vector<XMFLOAT3> tangents;
 	vector<unsigned int> indices;
 	unsigned int materialIndex;
+	bool isNormalMapped;
+	XMFLOAT4 min, max;
 };
+
 
 struct headerInfo
 {
@@ -41,6 +42,7 @@ struct materialInfo
 	unsigned int diffTexIndex;
 	unsigned int specTexIndex;
 	unsigned int normMapIndex;
+	unsigned int maskIndex;
 };
 
 
@@ -50,23 +52,44 @@ public:
 
 	ObjParser() : mOffsetVert(1), mOffsetUv(1), mOffsetNorm(1), matIndex(0) {};
 
+	void Init();
 	void CreateNormals();
-	void FinishInfo();
-	void ProcessOneLenTokens(stringstream& ss, char firstToken);
-	void ProcessTwoLenTokens(stringstream& ss, string& firstToken);
-	void ProcessLongerTokens(stringstream& ss, string& firstToken);
+	void CreateTangents();
+	void FinishInfo(bool materialChange = false);
 	void CreateVertex(string& faceDescription);
+
+#ifdef FAST
+	void ReadObjFile(char* filePath, char* fileName);
+
+	void ProcessOneLenTokens(char** pointer);
+	void ProcessTwoLenTokens(char** pointer);
+	void ProcessLongerTokens(char** pointer);
+	char* mCurrentPath;
+
+	float ReadFloat(char** pointer);
+#else
+	void ReadObjFile(string& filePath, string& fileName);
+
+	void ProcessOneLenTokens(ifstream& ss, char firstToken);
+	void ProcessTwoLenTokens(ifstream& ss, string& firstToken);
+	void ProcessLongerTokens(ifstream& ss, string& firstToken);
+	string mCurrentPath;
+#endif
 
 
 	void ReadMaterials(string& fileName);
 
-	void ReadObjFile(string& filePath, string& fileName);
 	void WriteOutData(string& outFile);
 	void ProcessFaceData(string& data);
+
+	void IsMin(XMFLOAT3& vert);
+	void IsMax(XMFLOAT3& vert);
 
 private:
 
 	bool finishedVertexInfo = false;
+	bool readingFaces = false;
+	bool hasNormalsInc = false;
 	
 	unsigned int mOffsetVert;
 	unsigned int mOffsetUv;
@@ -78,11 +101,11 @@ private:
 
 	MeshData mTempMesh;
 	vector<MeshData> mMeshes;
-	vector<VertexType> mFullVertices;
 
-	vector<XMFLOAT4> mVertices;
-	vector<XMFLOAT4> mUvs;
-	vector<XMFLOAT4> mNormals;
+	vector<XMFLOAT3> mPositions;
+	vector<XMFLOAT2> mUvs;
+	vector<XMFLOAT3> mNormals;
+	vector<XMFLOAT3> mTangents;
 	vector<unsigned int> mIndices;
 	map<string, unsigned int> faceIndices;
 
@@ -91,6 +114,4 @@ private:
 	vector<string> mTextures;
 	map<string, unsigned int> mMaterialNames;
 	string mName;
-
-	string mCurrentPath;
 };
