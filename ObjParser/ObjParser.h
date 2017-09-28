@@ -4,9 +4,10 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <vector>
 #include <map>
+#include <vector>
 #include <DirectXMath.h>
+#include "MaterialParser.h"
 
 using namespace std;
 using namespace DirectX;
@@ -33,24 +34,12 @@ struct headerInfo
 	unsigned int materialIndex;
 };
 
-struct materialInfo
-{
-	XMFLOAT3 diffuse;
-	XMFLOAT3 ambient;
-	XMFLOAT3 specular;
-	float specFactor;
-	unsigned int diffTexIndex;
-	unsigned int specTexIndex;
-	unsigned int normMapIndex;
-	unsigned int maskIndex;
-};
-
 
 class ObjParser
 {
 public:
 
-	ObjParser() : mOffsetVert(1), mOffsetUv(1), mOffsetNorm(1), matIndex(0) {};
+	ObjParser() : mOffsetVert(1), mOffsetUv(1), mOffsetNorm(1) {};
 
 	void Init();
 	void CreateNormals();
@@ -77,8 +66,6 @@ public:
 #endif
 
 
-	void ReadMaterials(string& fileName);
-
 	void WriteOutData(string& outFile);
 	void ProcessFaceData(string& data);
 
@@ -96,8 +83,6 @@ private:
 	unsigned int mOffsetVert;
 	unsigned int mOffsetUv;
 	unsigned int mOffsetNorm;
-	unsigned int matIndex;
-	unsigned int texIndex;
 
 	unsigned int mCurrIndex = 0;
 
@@ -112,8 +97,6 @@ private:
 	map<string, unsigned int> faceIndices;
 
 	vector<string> mMeshNames;
-	vector<materialInfo> mMaterials;
-	vector<string> mTextures;
-	map<string, unsigned int> mMaterialNames;
-	string mName;
+
+	MaterialParser mMatParser;
 };

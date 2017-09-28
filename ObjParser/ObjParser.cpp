@@ -1,6 +1,236 @@
 #include "ObjParser.h"
 
+#ifdef FAST
+void ObjParser::ReadObjFile(char* filePath, char* fileName)
+{
+	ifstream inFile;
+	string line;
 
+	MeshData* data = new MeshData();
+	mCurrentPath = filePath;
+	// Copy all file info into a stringstream
+	inFile.open(strcat(filePath, fileName), std::ios::in | std::ios::binary);
+	stringstream ss;
+	char* fileData = NULL;
+
+	inFile.ignore(std::numeric_limits<std::streamsize>::max());
+	std::streamsize length = inFile.gcount();
+	inFile.clear();   //  Since ignore will have set eof.
+	inFile.seekg(0, std::ios_base::beg);
+
+	//copy to a char pointer
+	fileData = new char[length];
+	inFile.read(fileData, length);
+	inFile.close();
+
+	char* currentByte = fileData;
+
+	//While there's still info in the stringstream
+	while (currentByte < fileData + length)
+	{
+		//find length of first token
+		char* spacePoint = (char*)memchr(currentByte, ' ', 100);
+
+		int len = spacePoint - currentByte;
+
+		// The first token of a line could potentially be a vertex 'v' or something
+		// longer like vt - get the length and then act appropriately
+		switch (len)
+		{
+		case 1:
+			ProcessOneLenTokens(&currentByte);
+			break;
+		case 2:
+			ProcessTwoLenTokens(&currentByte);
+			break;
+		default:
+			ProcessLongerTokens(&currentByte);
+			break;
+		}
+	}
+
+	//special case - last mesh always needs a call to finish the data
+	FinishInfo();
+	delete[] fileData;
+}
+
+float ObjParser::ReadFloat(char** pointer)
+{
+	//find length of first token
+	char* spacePoint = (char*)memchr(*pointer, ' ', 100);
+	int len = spacePoint - *pointer;
+
+	float value = atof(*pointer);
+	*pointer += len + 1;
+
+	return value;
+}
+
+void ObjParser::ProcessOneLenTokens(char** pointer)
+{
+	size_t val = 4;
+	char waste;
+	XMFLOAT3 vert;
+	char* spacePoint = NULL;
+	char* newLinePoint = NULL;
+
+	switch (**pointer)
+	{
+	case 'v':
+
+		//if faces have just been read in then
+		//this is a new mesh
+		mReadingFaces = false;
+		if (finishedVertexInfo) {
+			FinishInfo();
+		}
+		*pointer += 3;
+		vert.x = ReadFloat(pointer);
+		vert.y = ReadFloat(pointer);
+		vert.z = ReadFloat(pointer);
+		mPositions.emplace_back(vert);
+		IsMax(vert);
+		IsMin(vert);
+		break;
+	case 'f':
+		// check for format of the face info
+		// if it is like 1/1/1 then split up for use
+		// otherwise just read in as is
+		mReadingFaces = true;
+		//getline(ss, line);
+
+		//newSS << line;
+		//val = line.find('/');
+		spacePoint = (char*)memchr(pointer, '/', 100);
+		if (spacePoint != NULL)
+		{
+			// is this face info containing 3 vertices (a triangle)
+			// or 4 vertices for a quad? If a quad we need to split into two triangles
+			// by repeating some of the vertices (see later)
+			// count the spaces to determine this
+			//val = count(line.begin(), line.end(), ' ');
+
+			if (val == 4)
+			{
+				for (unsigned int i = 0; i < 3; i++)
+				{
+					//newSS >> vertData;
+					//ProcessFaceData(vertData);
+
+				}
+
+			}
+			else if (val == 5)
+			{
+				// first three vertices are in a ccw direction like below, 1, 2 and 3
+				// *1
+				//
+				// *2    *3
+
+				// next three verts are like this
+				// * 1   *3
+				//
+				//       *2
+
+				// so will have to store the first index for use later, same for the third vertex of the
+				// first tri which is the 2nd vertex of the second tri
+
+				//newSS >> vertData;
+				//ProcessFaceData(vertData);
+				//prevVertData1 = vertData;
+
+				//newSS >> vertData;
+				//ProcessFaceData(vertData);
+
+				//newSS >> vertData;
+				//ProcessFaceData(vertData);
+				//prevVertData2 = vertData;
+
+				//ProcessFaceData(prevVertData1);
+				//ProcessFaceData(prevVertData2);
+
+				//newSS >> vertData;
+				//ProcessFaceData(vertData);
+			}
+		}
+		//newSS.clear();
+		break;
+	case '#':
+		newLinePoint = (char*)memchr(*pointer, '\n', 100);
+		*pointer = newLinePoint + 1;
+		break;
+	case 'g':
+		// If there is a g this is the beginning of the face info and the end of the vertex info
+		finishedVertexInfo = true;
+		string name;
+		//ss >> name;
+		mMeshNames.emplace_back(name);
+		break;
+	}
+}
+
+void ObjParser::ProcessTwoLenTokens(char** pointer)
+{
+	XMFLOAT2 uv;
+	XMFLOAT3 normal;
+
+	switch (**pointer)
+	{
+	case 't':
+		//ss >> uv.x;
+		//ss >> uv.y;
+		mUvs.emplace_back(uv);
+		break;
+	case 'n':
+		//ss >> normal.x;
+		//ss >> normal.y;
+		//ss >> normal.z;
+		mNormals.emplace_back(normal);
+		break;
+	}
+}
+
+void ObjParser::ProcessLongerTokens(char** pointer)
+{
+	/*if (firstToken == "usemtl")
+	{
+	if (mReadingFaces)
+	{
+	cout << "mid face material change" << endl;
+	FinishInfo(false);
+	}
+	string matName;
+	ss >> matName;
+	unsigned int matIndex = mMaterialNames[matName];
+	mTempMesh.materialIndex = matIndex;
+	}
+	else if (firstToken == "mtllib")
+	{
+	string matFile;
+	ss >> matFile;
+	ReadMaterials(matFile);
+	}*/
+
+	char* newLinePoint = NULL;
+
+	switch (**pointer)
+	{
+	case 'u':
+		newLinePoint = (char*)memchr(*pointer, '\n', 100);
+		*pointer = newLinePoint + 1;
+		break;
+	case 'm':
+		newLinePoint = (char*)memchr(*pointer, '\n', 100);
+		*pointer = newLinePoint + 1;
+		break;
+	default:
+		newLinePoint = (char*)memchr(*pointer, '\n', 100);
+		*pointer = newLinePoint + 1;
+		break;
+	}
+}
+
+#else
 void ObjParser::Init()
 {
 	//reset max and min
@@ -40,8 +270,8 @@ void ObjParser::CalcCenterAndSubtract()
 	// hey vertices!
 
 
-	unsigned int numFaces = (unsigned int)mIndices.size() / 3;
-	unsigned int numVerts = (unsigned int)mIndices.size();
+	unsigned int numFaces = (unsigned int)mTempMesh.indices.size() / 3;
+	unsigned int numVerts = (unsigned int)mTempMesh.indices.size();
 
 	// A vector of vectors storing the faces associated with each XMFLOAT3
 	vector<XMVECTOR> faceNormals;
@@ -230,7 +460,7 @@ void ObjParser::CalcCenterAndSubtract()
 	mCurrIndex = 0;
 	mIndices.clear();
 
-	if (mMaterials[mTempMesh.materialIndex].normMapIndex != 0)
+	if (mMatParser.GetMaterial(mTempMesh.materialIndex).normMapIndex != 0)
 	{
 		CreateTangents();
 
@@ -341,237 +571,6 @@ void ObjParser::CalcCenterAndSubtract()
  }
 
 
-#ifdef FAST
-void ObjParser::ReadObjFile(char* filePath, char* fileName)
-{
-	ifstream inFile;
-	string line;
-
-	MeshData* data = new MeshData();
-	mCurrentPath = filePath;
-	// Copy all file info into a stringstream
-	inFile.open(strcat(filePath, fileName), std::ios::in | std::ios::binary);
-	stringstream ss;
-	char* fileData = NULL;
-
-	inFile.ignore(std::numeric_limits<std::streamsize>::max());
-	std::streamsize length = inFile.gcount();
-	inFile.clear();   //  Since ignore will have set eof.
-	inFile.seekg(0, std::ios_base::beg);
-
-	//copy to a char pointer
-	fileData = new char[length];
-	inFile.read(fileData, length);
-	inFile.close();
-
-	char* currentByte = fileData;
-
-	//While there's still info in the stringstream
-	while (currentByte < fileData + length)
-	{
-		//find length of first token
-		char* spacePoint = (char*)memchr(currentByte, ' ', 100);
-
-		int len = spacePoint - currentByte;
-
-		// The first token of a line could potentially be a vertex 'v' or something
-		// longer like vt - get the length and then act appropriately
-		switch (len)
-		{
-			case 1:
-				ProcessOneLenTokens(&currentByte);
-				break;
-			case 2:
-				ProcessTwoLenTokens(&currentByte);
-				break;
-			default:
-				ProcessLongerTokens(&currentByte);
-				break;
-		}
-	}
-
-	//special case - last mesh always needs a call to finish the data
-	FinishInfo();
-	delete[] fileData;
-}
-
-float ObjParser::ReadFloat(char** pointer)
-{
-	//find length of first token
-	char* spacePoint = (char*)memchr(*pointer, ' ', 100);
-	int len = spacePoint - *pointer;
-
-	float value = atof(*pointer);
-	*pointer += len + 1;
-
-	return value;
-}
-
-void ObjParser::ProcessOneLenTokens(char** pointer)
-{
-	size_t val = 4;
-	char waste;
-	XMFLOAT3 vert;
-	char* spacePoint = NULL;
-	char* newLinePoint = NULL;
-
-	switch (**pointer)
-	{
-	case 'v':
-
-		//if faces have just been read in then
-		//this is a new mesh
-		mReadingFaces = false;
-		if (finishedVertexInfo) {
-			FinishInfo();
-		}
-		*pointer += 3;
-		vert.x = ReadFloat(pointer);
-		vert.y = ReadFloat(pointer);
-		vert.z = ReadFloat(pointer);
-		mPositions.emplace_back(vert);
-		IsMax(vert);
-		IsMin(vert);
-		break;
-	case 'f':
-		// check for format of the face info
-		// if it is like 1/1/1 then split up for use
-		// otherwise just read in as is
-		mReadingFaces = true;
-		//getline(ss, line);
-
-		//newSS << line;
-		//val = line.find('/');
-		spacePoint = (char*)memchr(pointer, '/', 100);
-		if (spacePoint != NULL)
-		{
-			// is this face info containing 3 vertices (a triangle)
-			// or 4 vertices for a quad? If a quad we need to split into two triangles
-			// by repeating some of the vertices (see later)
-			// count the spaces to determine this
-			//val = count(line.begin(), line.end(), ' ');
-
-			if (val == 4)
-			{
-				for (unsigned int i = 0; i < 3; i++)
-				{
-					//newSS >> vertData;
-					//ProcessFaceData(vertData);
-
-				}
-
-			}
-			else if (val == 5)
-			{
-				// first three vertices are in a ccw direction like below, 1, 2 and 3
-				// *1
-				//
-				// *2    *3
-
-				// next three verts are like this
-				// * 1   *3
-				//
-				//       *2
-
-				// so will have to store the first index for use later, same for the third vertex of the
-				// first tri which is the 2nd vertex of the second tri
-
-				//newSS >> vertData;
-				//ProcessFaceData(vertData);
-				//prevVertData1 = vertData;
-
-				//newSS >> vertData;
-				//ProcessFaceData(vertData);
-
-				//newSS >> vertData;
-				//ProcessFaceData(vertData);
-				//prevVertData2 = vertData;
-
-				//ProcessFaceData(prevVertData1);
-				//ProcessFaceData(prevVertData2);
-
-				//newSS >> vertData;
-				//ProcessFaceData(vertData);
-			}
-		}
-		//newSS.clear();
-		break;
-	case '#':
-		newLinePoint = (char*)memchr(*pointer, '\n', 100);
-		*pointer = newLinePoint + 1;
-		break;
-	case 'g':
-		// If there is a g this is the beginning of the face info and the end of the vertex info
-		finishedVertexInfo = true;
-		string name;
-		//ss >> name;
-		mMeshNames.emplace_back(name);
-		break;
-	}
-}
-
-void ObjParser::ProcessTwoLenTokens(char** pointer)
-{
-	XMFLOAT2 uv;
-	XMFLOAT3 normal;
-
-	switch (**pointer)
-	{
-	case 't':
-		//ss >> uv.x;
-		//ss >> uv.y;
-		mUvs.emplace_back(uv);
-		break;
-	case 'n':
-		//ss >> normal.x;
-		//ss >> normal.y;
-		//ss >> normal.z;
-		mNormals.emplace_back(normal);
-		break;
-	}
-}
-
-void ObjParser::ProcessLongerTokens(char** pointer)
-{
-	/*if (firstToken == "usemtl")
-	{
-		if (mReadingFaces)
-		{
-			cout << "mid face material change" << endl;
-			FinishInfo(false);
-		}
-		string matName;
-		ss >> matName;
-		unsigned int matIndex = mMaterialNames[matName];
-		mTempMesh.materialIndex = matIndex;
-	}
-	else if (firstToken == "mtllib")
-	{
-		string matFile;
-		ss >> matFile;
-		ReadMaterials(matFile);
-	}*/
-
-	char* newLinePoint = NULL;
-
-	switch (**pointer)
-	{
-		case 'u':
-			newLinePoint = (char*)memchr(*pointer, '\n', 100);
-			*pointer = newLinePoint + 1;
-			break;
-		case 'm':
-			newLinePoint = (char*)memchr(*pointer, '\n', 100);
-			*pointer = newLinePoint + 1;
-			break;
-		default:
-			newLinePoint = (char*)memchr(*pointer, '\n', 100);
-			*pointer = newLinePoint + 1;
-			break;
-	}
-}
-
-#else
 void ObjParser::ReadObjFile(string& filePath, string& fileName)
 {
 	ifstream inFile;
@@ -581,9 +580,6 @@ void ObjParser::ReadObjFile(string& filePath, string& fileName)
 	mCurrentPath = filePath;
 	// Copy all file info into a stringstream
 	inFile.open(filePath + fileName);
-	//stringstream ss;
-	//ss << inFile.rdbuf();
-	//inFile.close();
 
 	//While there's still info in the stringstream
 	while (!inFile.eof())
@@ -758,136 +754,19 @@ void ObjParser::ProcessLongerTokens(ifstream& ss,
 		}
 		string matName;
 		ss >> matName;
-		unsigned int matIndex = mMaterialNames[matName];
+		unsigned int matIndex = mMatParser.GetMaterialIndex(matName);
 		mTempMesh.materialIndex = matIndex;
 	}
 	else if (firstToken == "mtllib")
 	{
 		string matFile;
 		ss >> matFile;
-		ReadMaterials(matFile);
+		mMatParser.ReadMaterials(mCurrentPath + matFile);
 	}
 }
 #endif
 
 
- void ObjParser::ReadMaterials(string& fileName)
- {
-	 ifstream materialFile;
-	 materialFile.open(mCurrentPath + fileName);
-
-	 stringstream fileContents;
-	 fileContents << materialFile.rdbuf();
-
-	 materialInfo info;
-	 memset(&info, 0, sizeof(materialInfo));
-	 bool firstMaterial = true;
-
-	 while (fileContents.rdbuf()->in_avail() != 0)
-	 {
-		 string token;
-		 float r, g, b;
-		 
-		 fileContents >> token;
-		 if (token == "newmtl")
-		 {
-
-			 if (firstMaterial)
-			 {
-				 fileContents >> mName;
-				 firstMaterial = false;
-			 }
-			 else
-			 {
-				 // Push prev material into vector
-				 mMaterials.emplace_back(info);
-				 pair<string, unsigned int> matPair;
-				 matPair.first = mName;
-				 matPair.second = (unsigned int)mMaterials.size() - 1;
-				 mMaterialNames.insert(matPair);
-
-				 //clear info for new material and record name
-				 memset(&info, 0, sizeof(materialInfo));
-				 fileContents >> mName;
-			 }
-		 }
-		 else if (token[0] == 'K')
-		 {
-			 fileContents >> r;
-			 fileContents >> g;
-			 fileContents >> b;
-
-			 XMFLOAT3 val(r, g, b);
-
-			 switch (token[1])
-			 {
-				 case 's':
-					 info.specular = val;
-					 break;
-				 case 'd':
-					 info.diffuse = val;
-					 break;
-				 case 'a':
-					 info.ambient = val;
-					 break;
-			 }
-		 }
-		 else if (token[0] == 'N')
-		 {
-			 float specComponent;
-			 fileContents >> specComponent;
-
-			 switch (token[1])
-			 {
-			 case 's':
-				 info.specFactor = specComponent;
-				 break;
-			 }
-		 }
-		 else if (token.substr(0,3) == "map")
-		 {
-			 string texName;
-			 fileContents >> texName;
-			 
-			 unsigned int index = 0;
-			 auto result = find(mTextures.begin(), mTextures.end(), texName);
-			 if (result == mTextures.end())
-			 {
-				 mTextures.emplace_back(texName);
-				 index = texIndex++;
-			 }
-			 else
-			 {
-				 index = (unsigned int)(result - mTextures.begin());
-			 }
-
-			 if (token == "map_Kd")
-			 {
-				 info.diffTexIndex = index;
-			 }
-			 else if (token == "map_Ks")
-			 {
-				 info.specTexIndex = index;
-			 }
-			 else if (token == "map_bump")
-			 {
-				 info.normMapIndex = index;
-			 }
-			 else if (token == "map_d")
-			 {
-				 info.maskIndex = index;
-			 }
-		 }
-	 }
-
-	 // Push prev material into vector
-	 mMaterials.emplace_back(info);
-	 pair<string, unsigned int> matPair;
-	 matPair.first = mName;
-	 matPair.second = (unsigned int)mMaterials.size() - 1;
-	 mMaterialNames.insert(matPair);
-
- }
 
  void ObjParser::IsMin(XMFLOAT3& vert)
  {
@@ -933,7 +812,7 @@ void ObjParser::ProcessLongerTokens(ifstream& ss,
 
 	unsigned int numMeshes = (unsigned int)mMeshes.size() - 2;
 	out.write((char*)&numMeshes, sizeof(unsigned int));
-	unsigned int numMaterials = (unsigned int)mMaterials.size();
+	unsigned int numMaterials = (unsigned int)mMatParser.GetNumMaterials();
 	out.write((char*)&numMaterials, sizeof(unsigned int));
 	
 
@@ -970,23 +849,6 @@ void ObjParser::ProcessLongerTokens(ifstream& ss,
 		out.write((char*)&mesh.center, sizeof(XMFLOAT3));
 	}
 
-
-	//now write the material info out too
-	for (unsigned int i = 0; i < numMaterials; i++)
-	{
-		out.write((char*)&mMaterials[i], sizeof(materialInfo));
-	}
-
-	out.write((char*)&texIndex, sizeof(unsigned int));
-
-	//now write out names of textures
-	for (auto i = mTextures.begin(); i != mTextures.end(); i++)
-	{
-		string value = *i;
-		size_t len = value.length();
-		out.write((char*)&len, sizeof(unsigned int));
-		out.write(value.c_str(), sizeof(char) * len);
-	}
-
+	mMatParser.WriteOutMaterials(out);
 	out.close();
 }

@@ -1,11 +1,12 @@
 // ObjParserScratchPad.cpp
 // Testground for parsing wavefront .obj files
-#include "ObjParser.h"
+//#include "ObjParser.h"
+#include "NewParser.h"
 
 
 int main()
 {
-	ObjParser objparse;
+	//ObjParser objparse;
 
 	/*string file = "san-miguel.obj";
 	string dir = "C://Users/GhettoFett/Documents/meshes/Sponza/";*/
@@ -14,8 +15,10 @@ int main()
 	string file = "sponza.obj";
 	string dir = "C://Users/GhettoFett/Documents/meshes/sponza_obj/";
 
-	objparse.Init();
-	objparse.ReadObjFile(dir, file);
-	objparse.WriteOutData(output);
+	//objparse.Init();
+	//objparse.ReadObjFile(dir, file);
+	//objparse.WriteOutData(output);
+
+	ReadObjFile("C://Users/GhettoFett/Documents/meshes/sponza_obj/sponza.obj");
 	return 0;
 }
