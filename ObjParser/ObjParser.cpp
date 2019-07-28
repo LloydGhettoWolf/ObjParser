@@ -81,7 +81,7 @@ void ObjParser::ProcessOneLenTokens(char** pointer)
 		//if faces have just been read in then
 		//this is a new mesh
 		mReadingFaces = false;
-		if (finishedVertexInfo) {
+		if (mFinishedVertexInfo) {
 			FinishInfo();
 		}
 		*pointer += 3;
@@ -161,7 +161,7 @@ void ObjParser::ProcessOneLenTokens(char** pointer)
 		break;
 	case 'g':
 		// If there is a g this is the beginning of the face info and the end of the vertex info
-		finishedVertexInfo = true;
+		mFinishedVertexInfo = true;
 		string name;
 		//ss >> name;
 		mMeshNames.emplace_back(name);
@@ -240,6 +240,7 @@ void ObjParser::Init()
 
 void ObjParser::CalcCenterAndSubtract()
 {
+	// make the min and max treat 0.0f as the center
 	XMVECTOR min, max;
 	min = XMLoadFloat3(&mTempMesh.min);
 	max = XMLoadFloat3(&mTempMesh.max);
@@ -249,6 +250,7 @@ void ObjParser::CalcCenterAndSubtract()
 	XMStoreFloat3(&mTempMesh.min, min);
 	XMStoreFloat3(&mTempMesh.max, max);
 
+	// adjust all positions accordingly
 	unsigned int size = mPositions.size();
 	for (unsigned int i = 0; i < size; i++)
 	{
@@ -262,7 +264,7 @@ void ObjParser::CalcCenterAndSubtract()
 
  void ObjParser::CreateNormals()
 {
-	// Go over each face
+	// Go over each face - if normals aren't included in the .obj file
 	// create a normal for that face
 	// for each XMFLOAT3 create a list of face numbers
 	// sum up the normals from each face for each XMFLOAT3
@@ -273,15 +275,16 @@ void ObjParser::CalcCenterAndSubtract()
 	unsigned int numFaces = (unsigned int)mTempMesh.indices.size() / 3;
 	unsigned int numVerts = (unsigned int)mTempMesh.indices.size();
 
-	// A vector of vectors storing the faces associated with each XMFLOAT3
+	// A vector of XMVECTORs storing the faces associated with each XMFLOAT3
 	vector<XMVECTOR> faceNormals;
-	//faceNormals.reserve(numVerts);
 
+	// init the vector to the correct size by emplacing back the correct number of normals
 	for (unsigned int i = 0; i < numVerts; i++)
 	{
 		faceNormals.emplace_back(XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f));
 	}
 
+	// now go over each face and create the normals
 	for (unsigned int face = 0; face < numFaces; face++)
 	{
 		unsigned int index = face * 3;
@@ -407,41 +410,9 @@ void ObjParser::CalcCenterAndSubtract()
 
  void ObjParser::FinishInfo(bool materialChange)
 {
+	// there may be more than one mesh in an .obj, classic example being the sponza .obj
+	// every time the finishing step for parsing mesh data is reached we increment total
 	static unsigned int meshNum = 0;
-
-	//// first check if the mesh already exists in the vector of meshes
-	//for (unsigned int i = 0; i < meshNum; i++)
-	//{
-	//	MeshData mesh = mMeshes[i];
-	//	if (mesh.positions.size() == mTempMesh.positions.size() && !materialChange)
-	//	{
-	//		mOffsetUv += (unsigned int)mUvs.size();
-	//		mOffsetVert += (unsigned int)mPositions.size();
-	//		mOffsetNorm += (unsigned int)mNormals.size();
-	//		mPositions.clear();
-	//		mNormals.clear();
-	//		mUvs.clear();
-	//		mTangents.clear();
-	//		faceIndices.clear();
-	//		// mark flag
-	//		finishedVertexInfo = false;
-
-	//		mTempMesh.max = XMFLOAT3(-9999.0f, -9999.0f, -9999.0f);
-	//		mTempMesh.min = XMFLOAT3(9999.0f, 9999.0f, 9999.0f);
-
-	//		// reset all vectors holding vertex related data
-	//		mTempMesh.positions.clear();
-	//		mTempMesh.normals.clear();
-	//		mTempMesh.uvs.clear();
-	//		mTempMesh.tangents.clear();
-
-	//		// reset so isn't normal mapped to start with
-	//		mTempMesh.isNormalMapped = false;
-	//		return;
-	//	}
-	//		
-	//}
-
 	meshNum++;
 	
 	// adjust offset nums only if this is the end of a mesh and not a material change
@@ -468,7 +439,7 @@ void ObjParser::CalcCenterAndSubtract()
 		mTempMesh.isNormalMapped = true;
 	}
 	
-	if (!hasNormalsInc)
+	if (!mHasNormalsInc)
 		CreateNormals();
 	
 	// store the mesh for writing to the output file later
@@ -488,7 +459,7 @@ void ObjParser::CalcCenterAndSubtract()
 		mTangents.clear();
 		faceIndices.clear();
 		// mark flag
-		finishedVertexInfo = false;
+		mFinishedVertexInfo = false;
 	}
 
 	// clear the data stored in the tempMesh as if starting from fresh
@@ -527,7 +498,7 @@ void ObjParser::CalcCenterAndSubtract()
 
 	 XMFLOAT2 uv = mUvs[index - mOffsetUv];
 
-	 if (hasNormalsInc)
+	 if (mHasNormalsInc)
 	 {
 		 temp >> index;
 		 temp >> waste;
@@ -624,7 +595,7 @@ void ObjParser::ProcessOneLenTokens(ifstream& ss, char firstToken)
 		//if faces have just been read in then
 		//this is a new mesh
 		mReadingFaces = false;
-		if (finishedVertexInfo) {
+		if (mFinishedVertexInfo) {
 			FinishInfo();
 		}
 
@@ -711,7 +682,7 @@ void ObjParser::ProcessOneLenTokens(ifstream& ss, char firstToken)
 		break;
 	case 'g':
 		// If there is a g this is the beginning of the face info and the end of the vertex info
-		finishedVertexInfo = true;
+		mFinishedVertexInfo = true;
 		string name;
 		ss >> name;
 		mMeshNames.emplace_back(name);
@@ -733,7 +704,7 @@ void ObjParser::ProcessTwoLenTokens(ifstream& ss,
 		mUvs.emplace_back(uv);
 		break;
 	case 'n':
-		hasNormalsInc = true;
+		mHasNormalsInc = true;
 		ss >> normal.x;
 		ss >> normal.y;
 		ss >> normal.z;

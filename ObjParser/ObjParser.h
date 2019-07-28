@@ -1,5 +1,5 @@
 #pragma once
-//objparser.h
+//objparser.h = my obj parser that pre-processes into my "BOOM" file format
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -16,17 +16,24 @@ using namespace DirectX;
 
 struct MeshData
 {
+	// for the 'standard' mesh data that is common in .obj files
 	vector<XMFLOAT3> positions;
 	vector<XMFLOAT3> normals;
 	vector<XMFLOAT2> uvs;
 	vector<XMFLOAT3> tangents;
 	vector<unsigned int> indices;
+
+	// there are only so many materials in an .obj, enter all the info into an array of material infos and store an index into the array here
 	unsigned int materialIndex;
+
+	// is this normal mapped? This is checked in engine to choose right shader
 	bool isNormalMapped;
+
+	// info for AABB
 	XMFLOAT3 min, max, center;
 };
 
-
+// each .BOOM file has a small header giving the info below
 struct headerInfo
 {
 	int numverts;
@@ -34,7 +41,7 @@ struct headerInfo
 	unsigned int materialIndex;
 };
 
-
+// The actual parser itself
 class ObjParser
 {
 public:
@@ -47,6 +54,7 @@ public:
 	void FinishInfo(bool materialChange = false);
 	void CreateVertex(string& faceDescription);
 
+	// TODO finish FAST codepath
 #ifdef FAST
 	void ReadObjFile(char* filePath, char* fileName);
 
@@ -76,9 +84,9 @@ public:
 
 private:
 
-	bool finishedVertexInfo = false;
+	bool mFinishedVertexInfo = false;
 	bool mReadingFaces = false;
-	bool hasNormalsInc = false;
+	bool mHasNormalsInc = false;
 	
 	unsigned int mOffsetVert;
 	unsigned int mOffsetUv;
